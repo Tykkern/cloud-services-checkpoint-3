@@ -1,0 +1,16 @@
+# В core-install нет argocd-server, поэтому проект default сам не создаётся.
+# Отдельный проект заодно ограничивает Application одним репозиторием и одним namespace.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: kt3
+  namespace: argocd
+spec:
+  sourceRepos:
+    - http://gitlab.gitlab.svc.cluster.local:8930/root/config-repo.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: demo-gitops
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace

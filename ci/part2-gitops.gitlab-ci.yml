@@ -1,0 +1,45 @@
+# Часть 2: GitOps. Пайплайн тестирует, собирает и только коммитит новый образ в config-repo.
+# Применяет изменения в кластере ArgoCD.
+stages: [test, build, release]
+
+variables:
+  IMAGE: registry.registry.svc.cluster.local:5000/hello
+
+test:
+  stage: test
+  image: python:3.13-alpine
+  script:
+    - python -m unittest -v
+
+build:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:v1.24.0-debug
+    entrypoint: [""]
+  script:
+    - /kaniko/executor
+      --context "$CI_PROJECT_DIR"
+      --dockerfile "$CI_PROJECT_DIR/Dockerfile"
+      --build-arg "APP_VERSION=$CI_COMMIT_SHORT_SHA"
+      --destination "$IMAGE:$CI_COMMIT_SHORT_SHA"
+      --digest-file digest.txt
+      --insecure
+    # тег с коммитом для читаемости, digest для неизменяемости
+    - echo "$IMAGE:$CI_COMMIT_SHORT_SHA@$(cat digest.txt)" > image-ref.txt
+    - cat image-ref.txt
+  artifacts:
+    paths: [image-ref.txt]
+
+update-config:
+  stage: release
+  image:
+    name: alpine/git:v2.54.0
+    entrypoint: [""]
+  script:
+    - IMAGE_REF=$(cat image-ref.txt)
+    - git clone "http://ci:${CONFIG_REPO_TOKEN}@gitlab.gitlab.svc.cluster.local:8930/root/config-repo.git" config
+    - cd config
+    - 'sed -i "s|image: .*|image: ${IMAGE_REF}|" hello/deployment.yaml'
+    - 'git -c user.name="GitLab CI" -c user.email="ci@gitlab.local" commit -am "hello: ${CI_COMMIT_SHORT_SHA}"'
+    - git push origin HEAD:main
+    - git show --stat HEAD

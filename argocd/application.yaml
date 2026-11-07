@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hello
+  namespace: argocd
+spec:
+  project: kt3
+  source:
+    repoURL: http://gitlab.gitlab.svc.cluster.local:8930/root/config-repo.git
+    targetRevision: main
+    path: hello
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: demo-gitops
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

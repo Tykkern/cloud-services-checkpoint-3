@@ -1,0 +1,39 @@
+# Часть 1: push-модель. Пайплайн сам тестирует, собирает и деплоит.
+stages: [test, build, deploy]
+
+variables:
+  IMAGE: registry.registry.svc.cluster.local:5000/hello
+
+test:
+  stage: test
+  image: python:3.13-alpine
+  script:
+    - python -m unittest -v
+
+build:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:v1.24.0-debug
+    entrypoint: [""]
+  script:
+    - /kaniko/executor
+      --context "$CI_PROJECT_DIR"
+      --dockerfile "$CI_PROJECT_DIR/Dockerfile"
+      --build-arg "APP_VERSION=$CI_COMMIT_SHORT_SHA"
+      --destination "$IMAGE:$CI_COMMIT_SHORT_SHA"
+      --insecure
+
+deploy:
+  stage: deploy
+  image:
+    name: alpine/kubectl:1.37.1
+    entrypoint: [""]
+  script:
+    # первый запуск создаёт Deployment и Service, дальше меняется только образ
+    - |
+      if ! kubectl -n demo-push get deployment hello >/dev/null 2>&1; then
+        sed "s|hello-placeholder|$IMAGE:$CI_COMMIT_SHORT_SHA|" deploy/hello.yaml | kubectl -n demo-push apply -f -
+      fi
+    - kubectl -n demo-push set image deployment/hello hello="$IMAGE:$CI_COMMIT_SHORT_SHA"
+    - kubectl -n demo-push rollout status deployment/hello --timeout=180s
+    - kubectl -n demo-push get deployment hello -o wide

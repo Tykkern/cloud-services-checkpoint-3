@@ -1,0 +1,8 @@
+FROM python:3.13-alpine
+ARG APP_VERSION=dev
+ENV APP_VERSION=$APP_VERSION
+WORKDIR /app
+COPY app.py .
+USER 65534
+EXPOSE 8000
+CMD ["python", "app.py"]

@@ -1,0 +1,25 @@
+# helm upgrade --install gitlab-runner gitlab-runner --repo https://charts.gitlab.io --version 0.94.2 -n ci -f k8s/gitlab-runner-values.yaml
+image:
+  registry: docker.io
+  repository: gitlab/gitlab-runner
+  tag: alpine-v19.5.2
+
+gitlabUrl: http://gitlab.gitlab.svc.cluster.local:8930/
+
+rbac:
+  create: true
+
+serviceAccount:
+  create: true
+
+runners:
+  # секрет с runner-token создаёт scripts/setup.ps1 через GitLab API
+  secret: gitlab-runner-token
+  config: |
+    [[runners]]
+      clone_url = "http://gitlab.gitlab.svc.cluster.local:8930"
+      [runners.kubernetes]
+        namespace = "ci"
+        image = "alpine:3.22"
+        helper_image = "gitlab/gitlab-runner-helper:alpine3.21-v19.5.2"
+        service_account = "ci-deployer"
